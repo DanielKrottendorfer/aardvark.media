@@ -8,6 +8,7 @@ open Adaptify
 
 type Message = 
     | SetPaths of list<string>
+    | Enter of int
     | Discover
 
 [<ModelType>]
@@ -16,4 +17,6 @@ type Model =
         selectedPaths : IndexList<string>
         opcPaths      : HashMap<string, list<string>>
         surfaceFolder : list<string>
+        bboxes        : list<Box2d>
+        hover         : int
     }
