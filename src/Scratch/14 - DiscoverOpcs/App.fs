@@ -11,6 +11,7 @@ open FSharp.Data.Adaptive
 open Aardvark.Base.Rendering
 open DiscoverOpcs.Model
 open Aardvark.SceneGraph.Opc
+open PRo3D.Base
 
 
 module App =
@@ -98,24 +99,31 @@ module App =
                 |> List.map Discover.superDiscoveryMultipleSurfaceFolder
                 |> List.concat
             
-            let boxes = surfacePaths |> List.map(fun dir -> 
+            let boxes = 
+                surfacePaths 
+                |> List.map(fun dir -> 
 
                     let phDirs = Directory.GetDirectories(dir) |> Array.head |> Array.singleton
             
-                    let patchHierarchies =
-                        [ 
-                            for h in phDirs do
-                            yield PatchHierarchy.load OpcSelectionViewer.Serialization.binarySerializer.Pickle OpcSelectionViewer.Serialization.binarySerializer.UnPickle (h |> OpcPaths)
-                        ]    
+                    let patchHierarchies = [ 
+                        for h in phDirs do
+                        yield PatchHierarchy.load OpcSelectionViewer.Serialization.binarySerializer.Pickle OpcSelectionViewer.Serialization.binarySerializer.UnPickle (h |> OpcPaths)
+                    ]
             
                     let box = 
                         patchHierarchies 
-                            |> List.map(fun x -> x.tree |> QTree.getRoot) 
-                            |> List.map(fun x -> x.info.GlobalBoundingBox)
-                            |> List.fold (fun a b -> Box.Union(a, b)) Box3d.Invalid
+                        |> List.map(fun x -> x.tree |> QTree.getRoot) 
+                        |> List.map(fun x -> x.info.GlobalBoundingBox)
+                        |> List.fold (fun a b -> Box.Union(a, b)) Box3d.Invalid
 
                     box
-            )
+                )
+                |> List.map(fun box -> //transforming box to lon lat
+                    let min = CooTransformation.getLatLonAlt box.Min Planet.Mars
+                    let max = CooTransformation.getLatLonAlt box.Max Planet.Mars
+                    
+                    Box3d(V3d(min.latitude, min.longitude, min.altitude), V3d(max.latitude, max.longitude, max.altitude))                    
+                )
             
             let bboxes = 
                 if boxes.Length > 0 then 

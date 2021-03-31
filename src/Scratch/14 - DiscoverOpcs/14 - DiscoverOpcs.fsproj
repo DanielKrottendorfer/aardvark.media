@@ -12,7 +12,11 @@
     <OutputPath>..\..\..\bin\Release\</OutputPath>
   </PropertyGroup>
   <ItemGroup>
+    <EmbeddedResource Include="resources\CooTransformationConfig.zip">
+      <LogicalName>resources/CooTransformationConfig.zip</LogicalName>
+    </EmbeddedResource>
     <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="CooTransformation.fs" />
     <Compile Include="Discover.fs" />
     <Compile Include="Model.fs" />
     <Compile Include="App.fs" />
@@ -25,6 +29,11 @@
     <ProjectReference Include="..\..\Aardvark.UI.Primitives\Aardvark.UI.Primitives.fsproj" />
     <ProjectReference Include="..\..\Aardvark.UI\Aardvark.UI.fsproj" />
     <ProjectReference Include="..\10 - OpcSelectionViewer\10 - OpcSelectionViewer.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="JR.Wrappers">
+      <HintPath>..\..\..\lib\JR.Wrappers.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <Import Project="..\..\..\.paket\Paket.Restore.targets" />
 </Project>

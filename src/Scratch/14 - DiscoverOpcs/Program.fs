@@ -7,6 +7,7 @@ open Aardium
 
 open Suave
 open Suave.WebPart
+open PRo3D.Base
 
 [<EntryPoint; STAThread>]
 let main argv = 
@@ -14,8 +15,13 @@ let main argv =
     Aardvark.Init()
     Aardium.init()
 
+    let appData = Path.combine [Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData); "Pro3D"]
+    Log.line "Running with AppData: %s" appData
+    CooTransformation.initCooTrafo appData
+
     use app = new OpenGlApplication()
     let instance = DiscoverOpcs.App.app|> App.start
+
 
     // use can use whatever suave server to start you mutable app. 
     // startServerLocalhost is one of the convinience functions which sets up 
@@ -36,6 +42,8 @@ let main argv =
         height 768
         debug true
     }
+
+    CooTransformation.deInitCooTrafo ()
 
     //use ctrl = new AardvarkCefBrowser()
     //ctrl.Dock <- DockStyle.Fill
