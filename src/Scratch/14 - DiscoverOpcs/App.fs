@@ -12,6 +12,7 @@ open Aardvark.Base.Rendering
 open DiscoverOpcs.Model
 open Aardvark.SceneGraph.Opc
 open PRo3D.Base
+open Chiron
 
 
 module App =
@@ -59,18 +60,18 @@ module App =
             if box.Y.Max > max.Y then
                 max.Y <- box.Y.Max
         
+        // Moving all boxes into the first quadrant
         let positive_boxes = boxes |> List.map(fun box -> 
             Box2d(box.Min.XY - min,box.Max.XY - min)
         )
         
-        let max = max-min
+        let range = max-min
 
-        let cropped_boxes = positive_boxes |> List.map( fun box -> 
-            Box2d( (box.Min / max) , (box.Max / max) )
+        let unified_boxes = positive_boxes |> List.map( fun box -> 
+            Box2d( (box.Min / range) , (box.Max / range) )
         )
 
-        let scaled_boxes = cropped_boxes |> List.map( fun box ->
-
+        let scaled_boxes = unified_boxes |> List.map( fun box ->
             let min = V2d(box.Min.X * w,box.Min.Y *h)
             let max = V2d(box.Max.X * w,box.Max.Y *h)
             Box2d(min ,max)
@@ -99,7 +100,7 @@ module App =
                 |> List.map Discover.superDiscoveryMultipleSurfaceFolder
                 |> List.concat
             
-            let boxes = 
+            let bboxes = 
                 surfacePaths 
                 |> List.map(fun dir -> 
 
@@ -126,8 +127,8 @@ module App =
                 )
             
             let bboxes = 
-                if boxes.Length > 0 then 
-                    let i = scaleBoxes boxes 800.0 600.0
+                if bboxes.Length > 0 then 
+                    let i = scaleBoxes bboxes 800.0 600.0
                     printfn "%A" i
                     i
                 else
@@ -136,24 +137,67 @@ module App =
             let bboxes = bboxes |> List.map(fun box -> 
                 Box2d(box.Min + V2d(5.0,5.0),box.Max + V2d(5.0,5.0))
             )
-
+            
             printfn "%A" bboxes
+
+            let selectedFolder = [
+                for path in selectedPaths do
+                    let json_path = sprintf "%s\\%s" path "sav.json"
+                    if File.Exists json_path then
+                        let (selected:Selected) = File.readAllText json_path |> Json.parse |> Json.deserialize
+                        for s in selected.selected do 
+                            sprintf "%s\\%s" path s
+                ]
+
+            printfn "%A" selectedFolder
 
             Log.stop()
             
             { model with 
-               selectedPaths = selectedPaths |> IndexList.ofList
-               opcPaths = opcs
-               surfaceFolder = surfacePaths
-               bboxes = bboxes
+                selectedPaths = selectedPaths |> IndexList.ofList
+                opcPaths = opcs
+                surfaceFolder = surfacePaths
+                bboxes = bboxes
+                selectedFolders = HashSet.ofList selectedFolder
             }
         | Discover -> failwith ""
         | Enter i -> 
-            printfn "%i" i
             { model with
                 hover = i    
             }
-            
+        | Select i -> 
+            let selected = 
+
+                let s = model.surfaceFolder.[i]
+
+                if model.selectedFolders.Contains(s) then
+                    model.selectedFolders.Remove(s)
+                else
+                    model.selectedFolders.Add(s)
+
+            { model with
+                selectedFolders = selected
+            }
+        | Save -> 
+           
+            for path in model.selectedPaths do
+                let temp = { 
+                    selected = [
+                        for select in model.selectedFolders do
+                            if String.startsWith path select then
+                              let t = String.split '\\' select
+                              t.[t.Length-1]
+                    ]
+                }
+
+                let content = temp |> Json.serialize |> Json.format
+                let path = sprintf "%s\\%s" path "sav.json"
+                File.WriteAllText(path, content)
+
+                printfn "saved to %A" path
+
+            model 
+                
     
     //let folderText (folder:OpcFolder) =
     //  match folder with
@@ -200,15 +244,24 @@ module App =
         )
     
     let viewSurfacePaths (model:AdaptiveModel) = 
+    
         Incremental.div ([clazz "ui very compact stackable inverted relaxed divided list"] |> AttributeMap.ofList) (
             alist {
                 let! test = model.surfaceFolder
                 let! hover = model.hover
+                let! selected = model.selectedFolders.Content
+
                 for i in 0..test.Length-1 do
-                    if hover = i then
-                        yield h3 [style "color: red";onMouseOver (fun _ -> Enter i)] [text (test.[i])]
+                    
+                    let opc = test.[i]
+
+                    if selected.Contains opc then
+                        yield h3 [style "color: red"; onMouseOver (fun _ -> Enter i); onClick (fun _ -> Select i)] [text (test.[i])]
                     else
-                        yield h3 [style "color: white";onMouseOver (fun _ -> Enter i)] [text (test.[i])]
+                        if hover = i then
+                            yield h3 [style "color: blue"; onMouseOver (fun _ -> Enter i); onClick (fun _ -> Select i)] [text (test.[i])]
+                        else
+                            yield h3 [style "color: white";onMouseOver (fun _ -> Enter i); onClick (fun _ -> Select i)] [text (test.[i])]
    
             }
         )
@@ -229,13 +282,22 @@ module App =
 
         let viewPolygon =
             alist {
+                let! test = model.surfaceFolder
                 let! boxes = model.bboxes 
                 let! hover = model.hover
+                let! selected = model.selectedFolders.Content
+
                 for i in 0..boxes.Length-1 do
-                    if hover = i then
-                        yield drawBox boxes.[i] [style "stroke:rgb(0,255,255);stroke-width:2;fill-opacity: .25;";onMouseOver (fun _ -> Enter i)]
+                
+                    let opc = test.[i]
+
+                    if selected.Contains opc then
+                        yield drawBox boxes.[i] [style "stroke: red;   stroke-width:2;fill-opacity: .25;";onMouseOver (fun _ -> Enter i); onClick (fun _ -> Select i)]
                     else
-                        yield drawBox boxes.[i] [style "stroke:rgb(255,255,255);stroke-width:2;fill-opacity: .25;";onMouseOver (fun _ -> Enter i)]
+                        if hover = i then
+                            yield drawBox boxes.[i] [style "stroke: blue;   stroke-width:2;fill-opacity: .25;";onMouseOver (fun _ -> Enter i); onClick (fun _ -> Select i)]
+                        else
+                            yield drawBox boxes.[i] [style "stroke: white;  stroke-width:2;fill-opacity: .25;";onMouseOver (fun _ -> Enter i); onClick (fun _ -> Select i)] 
             }
     
         let svg =
@@ -269,6 +331,10 @@ module App =
                         Dialogs.onChooseFiles SetPaths;
                         clientEvent "onclick" (jsImportOPCDialog) ][
                         text "Select Path"
+                    ]
+                    button [
+                        clazz "ui button tiny"; onClick (fun _ -> Save) ][
+                        text "Save"
                     ]
                    // Html.SemUi.accordion "Paths" "files" true [viewPaths model]
                                         
@@ -306,6 +372,7 @@ module App =
         surfaceFolder = List.empty
         bboxes = List.empty
         hover = -1
+        selectedFolders = HashSet.empty
     }
     
 
