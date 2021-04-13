@@ -48,22 +48,34 @@ module App =
         let mutable min = boxes.Head.Min.XY
         let mutable max = boxes.Head.Max.XY
 
+        let boxes = boxes |> List.map(fun x -> 
+            let min = x.Min
+            let max = x.Max
+
+            if max.Y < min.Y then
+                Box3d(V3d(min.X,max.Y,min.Z),V3d(max.X,min.Y,max.Z))
+            else
+                Box3d(min,max)
+        )
+
         for box in boxes do
-            
             if box.X.Min < min.X then
                 min.X <- box.X.Min
-            if box.Y.Min < min.Y then
-                min.Y <- box.Y.Min
-
             if box.X.Max > max.X then
                 max.X <- box.X.Max
+        
+            if box.Y.Min < min.Y then
+                min.Y <- box.Y.Min
             if box.Y.Max > max.Y then
                 max.Y <- box.Y.Max
-        
+                
+
         // Moving all boxes into the first quadrant
         let positive_boxes = boxes |> List.map(fun box -> 
             Box2d(box.Min.XY - min,box.Max.XY - min)
         )
+
+        printfn "positive_boxes %A" positive_boxes
         
         let range = max-min
 
@@ -119,7 +131,7 @@ module App =
 
                     box
                 )
-                |> List.map(fun box -> //transforming box to lon lat
+                |> List.map(fun box -> //transforming box to lon lat 
                     let min = CooTransformation.getLatLonAlt box.Min Planet.Mars
                     let max = CooTransformation.getLatLonAlt box.Max Planet.Mars
                     
@@ -128,9 +140,7 @@ module App =
             
             let bboxes = 
                 if bboxes.Length > 0 then 
-                    let i = scaleBoxes bboxes 800.0 600.0
-                    printfn "%A" i
-                    i
+                    scaleBoxes bboxes 800.0 600.0
                 else
                     List.empty
 
@@ -138,7 +148,6 @@ module App =
                 Box2d(box.Min + V2d(5.0,5.0),box.Max + V2d(5.0,5.0))
             )
             
-            printfn "%A" bboxes
 
             let selectedFolder = [
                 for path in selectedPaths do
@@ -146,10 +155,9 @@ module App =
                     if File.Exists json_path then
                         let (selected:Selected) = File.readAllText json_path |> Json.parse |> Json.deserialize
                         for s in selected.selected do 
-                            sprintf "%s\\%s" path s
+                            s
                 ]
 
-            printfn "%A" selectedFolder
 
             Log.stop()
             
@@ -184,17 +192,13 @@ module App =
                 let temp = { 
                     selected = [
                         for select in model.selectedFolders do
-                            if String.startsWith path select then
-                              let t = String.split '\\' select
-                              t.[t.Length-1]
+                            select
                     ]
                 }
 
                 let content = temp |> Json.serialize |> Json.format
                 let path = sprintf "%s\\%s" path "sav.json"
                 File.WriteAllText(path, content)
-
-                printfn "saved to %A" path
 
             model 
                 
