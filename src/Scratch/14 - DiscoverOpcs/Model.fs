@@ -8,6 +8,7 @@ open Adaptify
 open Chiron
 
 type Message = 
+    | Restore
     | SetPaths of list<string>
     | Enter of int
     | Select of int
@@ -17,27 +18,32 @@ type Message =
 [<ModelType>]
 type Model = 
     {
-        selectedPaths : IndexList<string>
-        opcPaths      : HashMap<string, list<string>>
-        surfaceFolder : list<string>
-        bboxes        : list<Box2d>
-        hover         : int
-        selectedFolders      : HashSet<string>
+        selectedPaths        : IndexList<string>
+        opcPaths             : HashMap<string, list<string>>
+        surfaceFolder        : list<string>
+        bboxes               : list<Box2d>
+        hover                : int
+        highlightedFolders   : HashSet<string>
     }
-
-type Selected =
-    {
-        selected : string list
-    }
-
-    static member ToJson (s : Selected) =
+    
+    static member ToJson (m : Model) =
         json{
-            do! Json.write "Selected" s.selected
+            do! Json.write "SelectedPath" (IndexList.toArray m.selectedPaths)
+            do! Json.write "SelectedFolders" (HashSet.toArray m.highlightedFolders)
+        }
+    static member FromJson (_m : Model) =
+        json{
+            let! selectedPaths = Json.read "SelectedPath"
+            let! selectedFolders = Json.read "SelectedFolders"
+
+            return {
+                    selectedPaths = IndexList.ofList selectedPaths
+                    opcPaths = HashMap.Empty
+                    surfaceFolder = List.Empty
+                    bboxes = List.Empty
+                    hover = -1
+                    highlightedFolders = HashSet.ofList selectedFolders
+                }
         }
 
-    static member FromJson (_s : Selected) =
-        json{
-            let! selected = Json.read "Selected"
-            return {selected = selected}
-        }
     

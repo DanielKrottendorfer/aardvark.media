@@ -148,17 +148,6 @@ module App =
                 Box2d(box.Min + V2d(5.0,5.0),box.Max + V2d(5.0,5.0))
             )
             
-
-            let selectedFolder = [
-                for path in selectedPaths do
-                    let json_path = sprintf "%s\\%s" path "sav.json"
-                    if File.Exists json_path then
-                        let (selected:Selected) = File.readAllText json_path |> Json.parse |> Json.deserialize
-                        for s in selected.selected do 
-                            s
-                ]
-
-
             Log.stop()
             
             { model with 
@@ -166,7 +155,6 @@ module App =
                 opcPaths = opcs
                 surfaceFolder = surfacePaths
                 bboxes = bboxes
-                selectedFolders = HashSet.ofList selectedFolder
             }
         | Discover -> failwith ""
         | Enter i -> 
@@ -178,29 +166,35 @@ module App =
 
                 let s = model.surfaceFolder.[i]
 
-                if model.selectedFolders.Contains(s) then
-                    model.selectedFolders.Remove(s)
+                if model.highlightedFolders.Contains(s) then
+                    model.highlightedFolders.Remove(s)
                 else
-                    model.selectedFolders.Add(s)
+                    model.highlightedFolders.Add(s)
 
             { model with
-                selectedFolders = selected
+                highlightedFolders = selected
             }
         | Save -> 
-           
-            for path in model.selectedPaths do
-                let temp = { 
-                    selected = [
-                        for select in model.selectedFolders do
-                            select
-                    ]
-                }
+            let content = model |> Json.serialize |> Json.formatWith JsonFormattingOptions.Pretty
+            
+            let dir = Directory.GetCurrentDirectory()
+            let path = dir + "\\sav.json"
 
-                let content = temp |> Json.serialize |> Json.format
-                let path = sprintf "%s\\%s" path "sav.json"
-                File.WriteAllText(path, content)
+            File.WriteAllText(path, content)
 
             model 
+        |Restore ->
+            let dir = Directory.GetCurrentDirectory()
+            let path = dir + "\\sav.json"
+
+            if File.Exists(path) then
+                let file = File.readAllText path
+                let model:Model = file |> Json.parse |> Json.deserialize
+                model
+            else
+                model
+
+
                 
     
     //let folderText (folder:OpcFolder) =
@@ -253,7 +247,7 @@ module App =
             alist {
                 let! test = model.surfaceFolder
                 let! hover = model.hover
-                let! selected = model.selectedFolders.Content
+                let! selected = model.highlightedFolders.Content
 
                 for i in 0..test.Length-1 do
                     
@@ -289,7 +283,7 @@ module App =
                 let! test = model.surfaceFolder
                 let! boxes = model.bboxes 
                 let! hover = model.hover
-                let! selected = model.selectedFolders.Content
+                let! selected = model.highlightedFolders.Content
 
                 for i in 0..boxes.Length-1 do
                 
@@ -376,16 +370,16 @@ module App =
         surfaceFolder = List.empty
         bboxes = List.empty
         hover = -1
-        selectedFolders = HashSet.empty
+        highlightedFolders = HashSet.empty
     }
     
 
     let app =
-
+        let initial = Restore |> update initial
         {
             unpersist = Unpersist.instance     
             threads = threads 
-            initial = initPaths |> SetPaths |> update initial
+            initial = initial.selectedPaths.AsList |> SetPaths |> update initial
             update = update 
             view = view
         }
