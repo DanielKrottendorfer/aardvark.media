@@ -29,12 +29,12 @@ type Model =
     static member ToJson (m : Model) =
         json{
             do! Json.write "SelectedPath" (IndexList.toArray m.selectedPaths)
-            do! Json.write "SelectedFolders" (HashSet.toArray m.highlightedFolders)
+            do! Json.write "HighlightedFolders" (HashSet.toArray m.highlightedFolders)
         }
     static member FromJson (_m : Model) =
         json{
             let! selectedPaths = Json.read "SelectedPath"
-            let! selectedFolders = Json.read "SelectedFolders"
+            let! highlightedFolders = Json.read "HighlightedFolders"
 
             return {
                     selectedPaths = IndexList.ofList selectedPaths
@@ -42,7 +42,7 @@ type Model =
                     surfaceFolder = List.Empty
                     bboxes = List.Empty
                     hover = -1
-                    highlightedFolders = HashSet.ofList selectedFolders
+                    highlightedFolders = HashSet.ofList highlightedFolders
                 }
         }
 
