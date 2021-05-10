@@ -140,7 +140,7 @@ module App =
             
             let bboxes = 
                 if bboxes.Length > 0 then 
-                    scaleBoxes bboxes 800.0 600.0
+                    scaleBoxes bboxes 400.0 400.0
                 else
                     List.empty
 
@@ -193,7 +193,9 @@ module App =
                 model
             else
                 model
-
+        
+        | UpdateConfig cfg ->
+            { model with dockConfig = cfg}
 
                 
     
@@ -252,14 +254,16 @@ module App =
                 for i in 0..test.Length-1 do
                     
                     let opc = test.[i]
+                    let opc_name = List.last (String.split '\\' opc);
+                   
 
                     if selected.Contains opc then
-                        yield h3 [style "color: red"; onMouseOver (fun _ -> Enter i); onClick (fun _ -> Select i)] [text (test.[i])]
+                        yield h3 [style "color: red"; onMouseOver (fun _ -> Enter i); onClick (fun _ -> Select i)] [text (opc_name)]
                     else
                         if hover = i then
-                            yield h3 [style "color: blue"; onMouseOver (fun _ -> Enter i); onClick (fun _ -> Select i)] [text (test.[i])]
+                            yield h3 [style "color: blue"; onMouseOver (fun _ -> Enter i); onClick (fun _ -> Select i)] [text (opc_name)]
                         else
-                            yield h3 [style "color: white";onMouseOver (fun _ -> Enter i); onClick (fun _ -> Select i)] [text (test.[i])]
+                            yield h3 [style "color: white";onMouseOver (fun _ -> Enter i); onClick (fun _ -> Select i)] [text (opc_name)]
    
             }
         )
@@ -269,6 +273,11 @@ module App =
     
     let view (model : AdaptiveModel) =
     
+        let myCss = [
+            { kind = Stylesheet;  name = "semui";           url = "https://cdn.jsdelivr.net/semantic-ui/2.2.6/semantic.min.css" }
+            { kind = Stylesheet;  name = "semui-overrides"; url = "semui-overrides.css" }
+            { kind = Script;      name = "semui";           url = "https://cdn.jsdelivr.net/semantic-ui/2.2.6/semantic.min.js" }
+        ]
         
         let drawBox (box : Box2d) attributes =      
             Svg.rect <| attributes @ [
@@ -302,7 +311,7 @@ module App =
             // read about svg elements here: https://www.w3schools.com/html/html5_svg.asp
             let attributes = 
                 AttributeMap.ofList [
-                    attribute "width" "820"; attribute "height" "620" 
+                    attribute "width" "420"; attribute "height" "420" 
 
                     // our event handlers require to search for the svg element to compute the coordinates realtive to.
                     // currently we use hard coded class name 'svgRoot' in our javascript code. see: aardvark.js
@@ -318,40 +327,119 @@ module App =
                     yield! viewPolygon 
                 }
 
-
-        require Html.semui (
-            body [style "width: 100%; height:100%; background: #252525; overflow-x: hidden; overflow-y: scroll"] [
-                div [clazz "ui inverted segment"] [
-                    h1 [clazz "ui"][text "Discover Opcs"]
-                    br []
-                    button [ 
-                        clazz "ui button tiny"
+        let jsImportOPCDialog =
+            "top.aardvark.dialog.showOpenDialog({tile: 'Select directory to discover OPCs and import', filters: [{ name: 'OPC (directories)'}], properties: ['openDirectory', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+      
+        let importSurface =
+            [
+                text "Surfaces"
+                i [clazz "dropdown icon"][] 
+                div [ clazz "menu"] [
+                    div [ clazz "ui inverted item";
                         Dialogs.onChooseFiles SetPaths;
-                        clientEvent "onclick" (jsImportOPCDialog) ][
-                        text "Select Path"
+                        clientEvent "onclick" (jsImportOPCDialog) 
+                    ][
+                        text "Import OPCs"
                     ]
-                    button [
-                        clazz "ui button tiny"; onClick (fun _ -> Save) ][
-                        text "Save"
-                    ]
-                   // Html.SemUi.accordion "Paths" "files" true [viewPaths model]
-                                        
-                   // button [clazz "ui button tiny"; onClick (fun _ -> Discover)] [text "DiscoverOpcs" ]                
-            
-                    //Html.SemUi.accordion "Opcs" "boxes" true [viewOpcPaths model]
-                    viewOpcPaths model
                 ]
-                div [clazz "ui inverted segment"] [
-                    h1 [clazz "ui"][text "Discovered Surface Folder"]
-                    br []
-                    viewSurfacePaths model
-                ]
-                br []
-                br []
-                svg // here comes the actual svg
-                br []
             ]
-        )
+
+        let menu (m : AdaptiveModel) =             
+
+            div [clazz "menu-bar"] [
+                // menu
+                div [ clazz "ui top menu"; style "z-index: 10000; padding:0px; margin:0px"] [
+                    onBoot "$('#__ID__').dropdown('on', 'hover');" (
+                        div [ clazz "ui dropdown item"; style "padding:0px 5px"] [
+                            i [clazz "large sidebar icon"; style "margin:0px 2px"] []
+                            
+                            div [ clazz "ui menu"] [
+                                //import surfaces
+                                //div [ clazz "ui dropdown item"; style "width: 150px"] importSurface
+                                //scene menu
+                                div [ clazz "button"] [
+                                    div [ clazz "ui inverted item";
+                                        Dialogs.onChooseFiles SetPaths;
+                                        clientEvent "onclick" (jsImportOPCDialog) 
+                                    ][
+                                        text "add surface"
+                                    ]
+                                ]
+                                div [ clazz "button"] [
+                                    div [ clazz "ui inverted item";
+                                        //Dialogs.onChooseFiles SetPaths;
+                                        //clientEvent "onclick" (jsImportOPCDialog) 
+                                    ][
+                                        text "add anno"
+                                    ]
+                                ]
+                            ] 
+                        ]
+                    )
+                ]
+            ]
+        page (fun request -> 
+            match Map.tryFind "page" request.queryParams with
+                | Some "files" -> 
+                    require Html.semui (
+                          body [style"width: 40%; height:100%; background: transparent; overflow: auto"; ] [
+                              //div [clazz "ui inverted segment"] [
+                              //    h1 [clazz "ui"][text "Discover Opcs"]
+                              //    br []
+                              //    viewOpcPaths model
+                              //]
+                              div [clazz "ui inverted segment"] [
+                                  h1 [clazz "ui"][text "Discovered Surface Folder"]
+                                  br []
+                                  viewSurfacePaths model
+                              ]
+                          ]
+                    )
+                | Some "properties" ->
+                    require Html.semui (
+                        body [style"width: 100%; height:100%; background: transparent; overflow: auto"; ] [
+                          h1 [clazz "ui"][text "Properties"]
+                        ]
+                    )
+                | Some "boxes" ->
+                    body[style "width: 100%; height:100%; background: transparent; overflow: auto";] [
+                        svg // here comes the actual svg
+                    ]
+                | Some "scene" ->
+                    require Html.semui (
+                        body [style"width: 100%; height:100%; background: transparent; overflow: auto"; ] [
+                          h1 [clazz "ui"][text "Scene"]
+                        ]
+                    )
+                | Some "3d_preview" ->
+                    require Html.semui (
+                        body [style"width: 100%; height:100%; background: transparent; overflow: auto"; ] [
+                          h1 [clazz "ui"][text "3D Preview"]
+                        ]
+                    )
+                | Some other ->
+                    let msg = sprintf "Unknown page: %A" other
+                    body [] [
+                        div [style "color: white; font-size: large; background-color: red; width: 100%; height: 100%"] [text msg]
+                    ]  
+
+                | None -> 
+                    require(myCss) (
+                        body [][   
+                            div[clazz "ui menu"; style "padding:0; margin:0; border:0"] [
+                                yield (menu model)
+                            ]
+                            div[clazz "dockingMainDings"] [
+                                model.dockConfig
+                                |> docking [                                           
+                                    style "width:100%; height:100%; background:#F00"
+                                    onLayoutChanged UpdateConfig ]
+                            ]
+                        ]
+                    )
+                //| _ -> body[][]
+
+            )
     
     
     let threads (model : Model) = 
@@ -371,6 +459,7 @@ module App =
         bboxes = List.empty
         hover = -1
         highlightedFolders = HashSet.empty
+        dockConfig = Model.ui.dockConfig
     }
     
 
