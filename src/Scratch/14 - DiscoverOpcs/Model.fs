@@ -39,17 +39,29 @@ type Message =
     | Discover
     | Save
     | UpdateConfig of DockConfig
+    | UpdateProperties of int
+    | OpenExplorer
+
+type Properties =
+    {
+        filename    : string
+        path        : string
+        bounds      : string
+    }
 
 [<ModelType>]
+
+
 type Model = 
     {
         selectedPaths        : IndexList<string>
         opcPaths             : HashMap<string, list<string>>
-        surfaceFolder        : list<string>
+        surfaceFolders       : list<string>
         bboxes               : list<Box2d>
         hover                : int
         highlightedFolders   : HashSet<string>
         dockConfig           : DockConfig
+        properties           : Properties
     }
     
     static member ToJson (m : Model) =
@@ -58,6 +70,7 @@ type Model =
             do! Json.write "HighlightedFolders" (HashSet.toArray m.highlightedFolders)
         }
     static member FromJson (_m : Model) =
+
         json{
             let! selectedPaths = Json.read "SelectedPath"
             let! highlightedFolders = Json.read "HighlightedFolders"
@@ -65,11 +78,16 @@ type Model =
             return {
                   selectedPaths = IndexList.ofList selectedPaths
                   opcPaths = HashMap.Empty
-                  surfaceFolder = List.Empty
+                  surfaceFolders = List.Empty
                   bboxes = List.Empty
                   hover = -1
                   highlightedFolders = HashSet.ofList highlightedFolders
                   dockConfig = ui.dockConfig
+                  properties = {
+                          filename = ""
+                          path = ""
+                          bounds = ""
+                    }
                 }
             }
 

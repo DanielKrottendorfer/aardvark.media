@@ -13,6 +13,7 @@ open DiscoverOpcs.Model
 open Aardvark.SceneGraph.Opc
 open PRo3D.Base
 open Chiron
+open System.Diagnostics
 
 
 module App =
@@ -93,7 +94,7 @@ module App =
         scaled_boxes
                 
             
-        
+    
 
     let update (model : Model) (msg : Message) =
         match msg with
@@ -112,7 +113,7 @@ module App =
                 |> List.map Discover.superDiscoveryMultipleSurfaceFolder
                 |> List.concat
             
-            let bboxes = 
+            let box_info = 
                 surfacePaths 
                 |> List.map(fun dir -> 
 
@@ -122,16 +123,26 @@ module App =
                         for h in phDirs do
                         yield PatchHierarchy.load OpcSelectionViewer.Serialization.binarySerializer.Pickle OpcSelectionViewer.Serialization.binarySerializer.UnPickle (h |> OpcPaths)
                     ]
-            
+
+
+                    let info = 
+                        patchHierarchies 
+                        |> List.map(fun x -> x.tree |> QTree.getRoot) 
+                        |> List.map(fun x -> x.info)
+
+
                     let box = 
                         patchHierarchies 
                         |> List.map(fun x -> x.tree |> QTree.getRoot) 
                         |> List.map(fun x -> x.info.GlobalBoundingBox)
                         |> List.fold (fun a b -> Box.Union(a, b)) Box3d.Invalid
 
-                    box
+                    (info,box)
                 )
-                |> List.map(fun box -> //transforming box to lon lat 
+
+            let bboxes = 
+                box_info
+                |> List.map(fun (info,box) -> //transforming box to lon lat 
                     let min = CooTransformation.getLatLonAlt box.Min Planet.Mars
                     let max = CooTransformation.getLatLonAlt box.Max Planet.Mars
                     
@@ -153,7 +164,7 @@ module App =
             { model with 
                 selectedPaths = selectedPaths |> IndexList.ofList
                 opcPaths = opcs
-                surfaceFolder = surfacePaths
+                surfaceFolders = surfacePaths
                 bboxes = bboxes
             }
         | Discover -> failwith ""
@@ -164,15 +175,44 @@ module App =
         | Select i -> 
             let selected = 
 
-                let s = model.surfaceFolder.[i]
+                let s = model.surfaceFolders.[i]
 
                 if model.highlightedFolders.Contains(s) then
                     model.highlightedFolders.Remove(s)
                 else
                     model.highlightedFolders.Add(s)
+                    
+            let phDirs = Directory.GetDirectories(model.surfaceFolders.[i]) |> Array.head |> Array.singleton
+            
+            let patchHierarchies = [ 
+                for h in phDirs do
+                yield PatchHierarchy.load OpcSelectionViewer.Serialization.binarySerializer.Pickle OpcSelectionViewer.Serialization.binarySerializer.UnPickle (h |> OpcPaths)
+            ]
+
+
+            let info = 
+                patchHierarchies 
+                |> List.map(fun x -> x.tree |> QTree.getRoot) 
+                |> List.map(fun x -> x.info)
+
+
+            let box = 
+                patchHierarchies 
+                |> List.map(fun x -> x.tree |> QTree.getRoot) 
+                |> List.map(fun x -> x.info.GlobalBoundingBox)
+                |> List.fold (fun a b -> Box.Union(a, b)) Box3d.Invalid
+
+            
+            let p =   
+                {
+                    filename = List.last (String.split '\\'  model.surfaceFolders.[i])
+                    path = model.surfaceFolders.[i]
+                    bounds = box.BoundingBox3d.ToString()
+                }
 
             { model with
                 highlightedFolders = selected
+                properties = p
             }
         | Save -> 
             let content = model |> Json.serialize |> Json.formatWith JsonFormattingOptions.Pretty
@@ -196,6 +236,24 @@ module App =
         
         | UpdateConfig cfg ->
             { model with dockConfig = cfg}
+        //| UpdateProperties i -> 
+            
+        //    let props = {
+        //        filename = "123"
+        //        path = "123"
+        //        bounds = "123"
+        //    }
+
+
+
+        //    {model with 
+        //        properties = props
+        //    }
+        | OpenExplorer -> 
+            let path = model.properties.path
+            Process.Start("explorer.exe", path ) |> ignore
+            model
+            
 
                 
     
@@ -243,11 +301,23 @@ module App =
             }
         )
     
+    let properties (model:AdaptiveModel) = 
+        Incremental.div ([clazz "ui list"] |> AttributeMap.ofList) (
+            alist {
+                let! p = model.properties
+                yield div [clazz "ui inverted item"][
+                    h3[clazz "ui"][text p.filename]
+                    h3[clazz "ui"][text p.path]
+                    h3[clazz "ui"][text p.bounds]
+                ]
+            }
+        )
+
     let viewSurfacePaths (model:AdaptiveModel) = 
     
         Incremental.div ([clazz "ui very compact stackable inverted relaxed divided list"] |> AttributeMap.ofList) (
             alist {
-                let! test = model.surfaceFolder
+                let! test = model.surfaceFolders
                 let! hover = model.hover
                 let! selected = model.highlightedFolders.Content
 
@@ -256,14 +326,14 @@ module App =
                     let opc = test.[i]
                     let opc_name = List.last (String.split '\\' opc);
                    
-
+                   
                     if selected.Contains opc then
-                        yield h3 [style "color: red"; onMouseOver (fun _ -> Enter i); onClick (fun _ -> Select i)] [text (opc_name)]
+                        yield h3 [style "color: red"; onMouseOver (fun _ -> Enter i) ;onMouseDoubleClick(fun _ -> UpdateProperties i); onClick (fun _ -> Select i)] [text (opc_name)]
                     else
                         if hover = i then
-                            yield h3 [style "color: blue"; onMouseOver (fun _ -> Enter i); onClick (fun _ -> Select i)] [text (opc_name)]
+                            yield h3 [style "color: blue"; onMouseOver (fun _ -> Enter i);onMouseDoubleClick(fun _ -> UpdateProperties i); onClick (fun _ -> Select i)] [text (opc_name)]
                         else
-                            yield h3 [style "color: white";onMouseOver (fun _ -> Enter i); onClick (fun _ -> Select i)] [text (opc_name)]
+                            yield h3 [style "color: white";onMouseOver (fun _ -> Enter i);onMouseDoubleClick(fun _ -> UpdateProperties i); onClick (fun _ -> Select i)] [text (opc_name)]
    
             }
         )
@@ -289,7 +359,7 @@ module App =
 
         let viewPolygon =
             alist {
-                let! test = model.surfaceFolder
+                let! test = model.surfaceFolders
                 let! boxes = model.bboxes 
                 let! hover = model.hover
                 let! selected = model.highlightedFolders.Content
@@ -329,7 +399,8 @@ module App =
 
         let jsImportOPCDialog =
             "top.aardvark.dialog.showOpenDialog({tile: 'Select directory to discover OPCs and import', filters: [{ name: 'OPC (directories)'}], properties: ['openDirectory', 'multiSelections']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
-      
+        
+
         let importSurface =
             [
                 text "Surfaces"
@@ -342,7 +413,51 @@ module App =
                         text "Import OPCs"
                     ]
                 ]
+
             ]
+        let topMenuItems (m:AdaptiveModel) = [ 
+                
+            //Navigation.UI.viewNavigationModes m.navigation  |> UI.map NavigationMessage 
+            Html.Layout.horizontal [
+                div [ clazz "ui"][
+                    button[
+                      onClick(fun _ -> Save)
+                    ][text "Save"]
+                ]
+            ]
+
+            Html.Layout.horizontal [
+                div [ clazz "ui"][
+                    button[
+                      //onClick(fun _ -> Save)
+                    ][text "show preview"]
+                    button[
+                      //onClick(fun _ -> Save)
+                    ][text "add to scene"]
+                    button[
+                      //onClick(fun _ -> Save)
+                    ][text "rm from scene"]
+                ]
+            ]
+            Html.Layout.horizontal [
+                div [ clazz "ui"][
+                    button[
+                      //onClick(fun _ -> Save)
+                    ][text "export"]
+                    button[
+                      //onClick(fun _ -> Save)
+                    ][text "launch Pro3d"]
+                ]
+            ]
+                  
+            //Html.Layout.horizontal [
+            //    Html.Layout.boxH [ i [clazz "large Globe icon"][] ]
+            //    Html.Layout.boxH [ Html.SemUi.dropDown m.scene.referenceSystem.planet ReferenceSystemAction.SetPlanet ] |> UI.map ReferenceSystemMessage
+            //] 
+            //Html.Layout.horizontal [
+            //    scenepath m
+            //]        
+        ]        
 
         let menu (m : AdaptiveModel) =             
 
@@ -383,13 +498,8 @@ module App =
                 | Some "files" -> 
                     require Html.semui (
                           body [style"width: 40%; height:100%; background: transparent; overflow: auto"; ] [
-                              //div [clazz "ui inverted segment"] [
-                              //    h1 [clazz "ui"][text "Discover Opcs"]
-                              //    br []
-                              //    viewOpcPaths model
-                              //]
                               div [clazz "ui inverted segment"] [
-                                  h1 [clazz "ui"][text "Discovered Surface Folder"]
+                                  h1 [clazz "ui"][text "Discovered Surface"]
                                   br []
                                   viewSurfacePaths model
                               ]
@@ -398,7 +508,11 @@ module App =
                 | Some "properties" ->
                     require Html.semui (
                         body [style"width: 100%; height:100%; background: transparent; overflow: auto"; ] [
-                          h1 [clazz "ui"][text "Properties"]
+                            div [clazz "ui inverted segment"] [
+                                h1 [clazz "ui"][text "Properties"]
+                                properties model
+                                button[onClick(fun _ -> OpenExplorer) ][text "Open Folder"]
+                            ]
                         ]
                     )
                 | Some "boxes" ->
@@ -428,6 +542,8 @@ module App =
                         body [][   
                             div[clazz "ui menu"; style "padding:0; margin:0; border:0"] [
                                 yield (menu model)
+                                for t in (topMenuItems model) do
+                                    yield div [clazz "item topmenu"] [t]
                             ]
                             div[clazz "dockingMainDings"] [
                                 model.dockConfig
@@ -437,7 +553,6 @@ module App =
                             ]
                         ]
                     )
-                //| _ -> body[][]
 
             )
     
@@ -455,11 +570,16 @@ module App =
     let initial =  { 
         selectedPaths = initPaths |> IndexList.ofList
         opcPaths = HashMap.empty //opcPaths |> IndexList.ofList
-        surfaceFolder = List.empty
+        surfaceFolders = List.empty
         bboxes = List.empty
         hover = -1
         highlightedFolders = HashSet.empty
         dockConfig = Model.ui.dockConfig
+        properties = {
+              filename = ""
+              path = ""
+              bounds = ""
+        }
     }
     
 
