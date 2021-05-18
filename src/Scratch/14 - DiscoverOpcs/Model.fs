@@ -1,4 +1,4 @@
- namespace DiscoverOpcs.Model
+namespace DiscoverOpcs
 
 open Aardvark.Base
 open FSharp.Data.Adaptive
@@ -30,6 +30,9 @@ module ui =
           useCachedConfig false
       }
 
+type SurfacePropertiesAction =
+    | OpenExplorer
+    | Nop
 
 type Message = 
     | Restore
@@ -39,8 +42,15 @@ type Message =
     | Discover
     | Save
     | UpdateConfig of DockConfig
-    | UpdateProperties of int
-    | OpenExplorer
+    | UpdateProperties of int    
+    | SurfacePropertiesMessage of SurfacePropertiesAction
+
+[<ModelType>]
+type OpcSurface = {
+    filename    : string
+    path        : string
+    bounds      : Box3d
+}
 
 type Properties =
     {
@@ -50,18 +60,18 @@ type Properties =
     }
 
 [<ModelType>]
-
-
 type Model = 
     {
         selectedPaths        : IndexList<string>
         opcPaths             : HashMap<string, list<string>>
         surfaceFolders       : list<string>
         bboxes               : list<Box2d>
+        surfaces             : list<OpcSurface>
+        selectedSurface      : OpcSurface
         hover                : int
         highlightedFolders   : HashSet<string>
         dockConfig           : DockConfig
-        properties           : Properties
+        properties           : Properties //aval<properties> ... AdaptiveProperties 
     }
     
     static member ToJson (m : Model) =
@@ -88,6 +98,7 @@ type Model =
                           path = ""
                           bounds = ""
                     }
+                  surfaces = List.empty
                 }
             }
 

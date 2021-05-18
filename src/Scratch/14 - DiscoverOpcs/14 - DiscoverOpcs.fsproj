@@ -19,6 +19,7 @@
     <Compile Include="CooTransformation.fs" />
     <Compile Include="Discover.fs" />
     <Compile Include="Model.fs" />
+    <Compile Include="SurfacePropertiesApp.fs" />
     <Compile Include="App.fs" />
     <Compile Include="Program.fs" />
     <None Include="App.config" />

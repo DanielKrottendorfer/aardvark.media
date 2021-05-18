@@ -168,7 +168,7 @@ module App =
                 bboxes = bboxes
             }
         | Discover -> failwith ""
-        | Enter i -> 
+        | DiscoverOpcs.Enter i -> 
             { model with
                 hover = i    
             }
@@ -236,6 +236,10 @@ module App =
         
         | UpdateConfig cfg ->
             { model with dockConfig = cfg}
+        | SurfacePropertiesMessage a ->
+            let opcSurface = SurfacePropertiesApp.update model.selectedSurface a
+
+            { model with selectedSurface = opcSurface }
         //| UpdateProperties i -> 
             
         //    let props = {
@@ -249,10 +253,7 @@ module App =
         //    {model with 
         //        properties = props
         //    }
-        | OpenExplorer -> 
-            let path = model.properties.path
-            Process.Start("explorer.exe", path ) |> ignore
-            model
+        
             
 
                 
@@ -301,17 +302,17 @@ module App =
             }
         )
     
-    let properties (model:AdaptiveModel) = 
-        Incremental.div ([clazz "ui list"] |> AttributeMap.ofList) (
-            alist {
-                let! p = model.properties
-                yield div [clazz "ui inverted item"][
-                    h3[clazz "ui"][text p.filename]
-                    h3[clazz "ui"][text p.path]
-                    h3[clazz "ui"][text p.bounds]
-                ]
-            }
-        )
+    //let properties (model:AdaptiveModel) = 
+    //    Incremental.div ([clazz "ui list"] |> AttributeMap.ofList) (
+    //        alist {
+    //            let! p = model.properties
+    //            yield div [clazz "ui inverted item"][
+    //                h3[clazz "ui"][text p.filename]
+    //                h3[clazz "ui"][text p.path]
+    //                h3[clazz "ui"][text p.bounds]
+    //            ]
+    //        }
+    //    )
 
     let viewSurfacePaths (model:AdaptiveModel) = 
     
@@ -508,11 +509,12 @@ module App =
                 | Some "properties" ->
                     require Html.semui (
                         body [style"width: 100%; height:100%; background: transparent; overflow: auto"; ] [
-                            div [clazz "ui inverted segment"] [
-                                h1 [clazz "ui"][text "Properties"]
-                                properties model
-                                button[onClick(fun _ -> OpenExplorer) ][text "Open Folder"]
-                            ]
+                            //div [clazz "ui inverted segment"] [
+                            //    h1 [clazz "ui"][text "Properties"]
+                            //    properties model
+                            //    button[onClick(fun _ -> OpenExplorer) ][text "Open Folder"]
+                            //]
+                            SurfacePropertiesApp.view model.selectedSurface |> UI.map SurfacePropertiesMessage
                         ]
                     )
                 | Some "boxes" ->

@@ -38,6 +38,9 @@ nuget Aardium                            ~> 1.0.30
 nuget Uncodium.Eigensystems              ~> 1.1.0
 nuget Aardvark.Geometry.Intersection     ~> 5.0.0
 
+nuget Silk.NET.GLFW                      = 1.7.0
+nuget Silk.NET.Core                      = 1.7.0
+
 nuget Chiron
 
 nuget Another.Unofficial.Xilium.CefGlue                          ~> 0.2.4
