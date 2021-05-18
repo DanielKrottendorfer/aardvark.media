@@ -9,13 +9,15 @@ open Aardvark.UI.Primitives
 open Aardvark.Base
 open Aardvark.UI
 open FSharp.Data.Adaptive
+open DiscoverOpcs.Model
+open System.Diagnostics
 
 module SurfacePropertiesApp =
     
     let update (model : OpcSurface) (action : SurfacePropertiesAction) : OpcSurface =
         match action with
-        | DiscoverOpcs.Nop -> model        
-        | DiscoverOpcs.OpenExplorer -> 
+        | Nop -> model        
+        | OpenExplorer -> 
             let path = model.path
             Process.Start("explorer.exe", path ) |> ignore
             model

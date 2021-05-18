@@ -1,4 +1,4 @@
-namespace DiscoverOpcs
+namespace DiscoverOpcs.Model
 
 open Aardvark.Base
 open FSharp.Data.Adaptive
@@ -52,12 +52,6 @@ type OpcSurface = {
     bounds      : Box3d
 }
 
-type Properties =
-    {
-        filename    : string
-        path        : string
-        bounds      : string
-    }
 
 [<ModelType>]
 type Model = 
@@ -71,7 +65,6 @@ type Model =
         hover                : int
         highlightedFolders   : HashSet<string>
         dockConfig           : DockConfig
-        properties           : Properties //aval<properties> ... AdaptiveProperties 
     }
     
     static member ToJson (m : Model) =
@@ -87,17 +80,17 @@ type Model =
 
             return {
                   selectedPaths = IndexList.ofList selectedPaths
+                  selectedSurface = {
+                      filename = ""
+                      path = ""
+                      bounds = Box3d()
+                  }
                   opcPaths = HashMap.Empty
                   surfaceFolders = List.Empty
                   bboxes = List.Empty
                   hover = -1
                   highlightedFolders = HashSet.ofList highlightedFolders
                   dockConfig = ui.dockConfig
-                  properties = {
-                          filename = ""
-                          path = ""
-                          bounds = ""
-                    }
                   surfaces = List.empty
                 }
             }

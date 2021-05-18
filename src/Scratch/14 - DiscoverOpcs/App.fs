@@ -8,12 +8,10 @@ open Aardvark.UI.Primitives
   
 open Aardvark.Base
 open FSharp.Data.Adaptive
-open Aardvark.Base.Rendering
 open DiscoverOpcs.Model
 open Aardvark.SceneGraph.Opc
 open PRo3D.Base
 open Chiron
-open System.Diagnostics
 
 
 module App =
@@ -148,6 +146,12 @@ module App =
                     
                     Box3d(V3d(min.latitude, min.longitude, min.altitude), V3d(max.latitude, max.longitude, max.altitude))                    
                 )
+            let opc_surfaces =  (List.zip bboxes surfacePaths) |> List.map(fun (box,path) -> 
+                {
+                    filename =  List.last (String.split '\\' path)
+                    path = path
+                    bounds = box
+                })
             
             let bboxes = 
                 if bboxes.Length > 0 then 
@@ -160,15 +164,18 @@ module App =
             )
             
             Log.stop()
+
+
             
             { model with 
                 selectedPaths = selectedPaths |> IndexList.ofList
                 opcPaths = opcs
                 surfaceFolders = surfacePaths
+                surfaces = opc_surfaces
                 bboxes = bboxes
             }
         | Discover -> failwith ""
-        | DiscoverOpcs.Enter i -> 
+        | Enter i -> 
             { model with
                 hover = i    
             }
@@ -181,38 +188,12 @@ module App =
                     model.highlightedFolders.Remove(s)
                 else
                     model.highlightedFolders.Add(s)
-                    
-            let phDirs = Directory.GetDirectories(model.surfaceFolders.[i]) |> Array.head |> Array.singleton
             
-            let patchHierarchies = [ 
-                for h in phDirs do
-                yield PatchHierarchy.load OpcSelectionViewer.Serialization.binarySerializer.Pickle OpcSelectionViewer.Serialization.binarySerializer.UnPickle (h |> OpcPaths)
-            ]
-
-
-            let info = 
-                patchHierarchies 
-                |> List.map(fun x -> x.tree |> QTree.getRoot) 
-                |> List.map(fun x -> x.info)
-
-
-            let box = 
-                patchHierarchies 
-                |> List.map(fun x -> x.tree |> QTree.getRoot) 
-                |> List.map(fun x -> x.info.GlobalBoundingBox)
-                |> List.fold (fun a b -> Box.Union(a, b)) Box3d.Invalid
 
             
-            let p =   
-                {
-                    filename = List.last (String.split '\\'  model.surfaceFolders.[i])
-                    path = model.surfaceFolders.[i]
-                    bounds = box.BoundingBox3d.ToString()
-                }
-
             { model with
                 highlightedFolders = selected
-                properties = p
+                selectedSurface = model.surfaces.[i]
             }
         | Save -> 
             let content = model |> Json.serialize |> Json.formatWith JsonFormattingOptions.Pretty
@@ -240,37 +221,6 @@ module App =
             let opcSurface = SurfacePropertiesApp.update model.selectedSurface a
 
             { model with selectedSurface = opcSurface }
-        //| UpdateProperties i -> 
-            
-        //    let props = {
-        //        filename = "123"
-        //        path = "123"
-        //        bounds = "123"
-        //    }
-
-
-
-        //    {model with 
-        //        properties = props
-        //    }
-        
-            
-
-                
-    
-    //let folderText (folder:OpcFolder) =
-    //  match folder with
-    //  | SurfaceFolder s -> s
-    //  | Surface s -> s
-    //  | Opc s -> s
-    //  | Other s -> s
-    
-    //let createTag (folder:OpcFolder) =
-    //    match folder with
-    //    | SurfaceFolder _ -> div [clazz "ui middle aligned tiny label yellow"][text "SurfaceFolder"]
-    //    | Surface       _ -> div [clazz "ui middle aligned tiny label orange"][text "Surface"]
-    //    | Opc           _ -> div [clazz "ui middle aligned tiny label red"][text "Opc"]
-    //    | Other         _ -> div [clazz "ui middle aligned tiny label blue"][text "Other"]
     
     let viewPaths (model:AdaptiveModel) = 
     
@@ -572,16 +522,17 @@ module App =
     let initial =  { 
         selectedPaths = initPaths |> IndexList.ofList
         opcPaths = HashMap.empty //opcPaths |> IndexList.ofList
+        selectedSurface = {
+            filename = ""
+            path = ""
+            bounds = Box3d()
+        }
+        surfaces = List.empty
         surfaceFolders = List.empty
         bboxes = List.empty
         hover = -1
         highlightedFolders = HashSet.empty
         dockConfig = Model.ui.dockConfig
-        properties = {
-              filename = ""
-              path = ""
-              bounds = ""
-        }
     }
     
 
