@@ -24,9 +24,9 @@ module SurfacePropertiesApp =
 
     let properties (model : AdaptiveOpcSurface) =                         
         div [clazz "ui inverted item"][
-            h3[clazz "ui"][Incremental.text model.filename]
-            h3[clazz "ui"][Incremental.text model.path]
-            h3[clazz "ui"][Incremental.text (model.bounds |> AVal.map(fun x -> x.ToString())) ] //aval<Box3d> -> aval<string>  ... x<`a> -> x<`b>
+            div [clazz "ui item"][Incremental.text model.filename]
+            div [clazz "ui item"][Incremental.text model.path]
+            div [clazz "ui item"][Incremental.text (model.bounds |> AVal.map(fun x -> x.ToString())) ] //aval<Box3d> -> aval<string>  ... x<`a> -> x<`b>
         ]                    
 
     let view (model : AdaptiveOpcSurface) : DomNode<SurfacePropertiesAction> =

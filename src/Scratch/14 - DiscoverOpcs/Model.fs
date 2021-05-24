@@ -56,7 +56,8 @@ type OpcSurface = {
 [<ModelType>]
 type Model = 
     {
-        selectedPaths        : IndexList<string>
+        selectedPaths        : List<string>
+        lastSelectedPath     : string
         opcPaths             : HashMap<string, list<string>>
         surfaceFolders       : list<string>
         bboxes               : list<Box2d>
@@ -66,20 +67,39 @@ type Model =
         highlightedFolders   : HashSet<string>
         dockConfig           : DockConfig
     }
+
+    static member Default = 
+      { 
+          selectedPaths = List.Empty
+          lastSelectedPath = ""
+          opcPaths = HashMap.empty //opcPaths |> IndexList.ofList
+          selectedSurface = {
+              filename = ""
+              path = ""
+              bounds = Box3d()
+          }
+          surfaces = List.empty
+          surfaceFolders = List.empty
+          bboxes = List.empty
+          hover = -1
+          highlightedFolders = HashSet.empty
+          dockConfig = ui.dockConfig
+      }
     
     static member ToJson (m : Model) =
         json{
-            do! Json.write "SelectedPath" (IndexList.toArray m.selectedPaths)
+            do! Json.write "SelectedPath" (m.selectedPaths)
             do! Json.write "HighlightedFolders" (HashSet.toArray m.highlightedFolders)
         }
     static member FromJson (_m : Model) =
-
+    
+        let def = Model.Default
         json{
             let! selectedPaths = Json.read "SelectedPath"
             let! highlightedFolders = Json.read "HighlightedFolders"
-
             return {
-                  selectedPaths = IndexList.ofList selectedPaths
+                  selectedPaths = selectedPaths
+                  lastSelectedPath = ""
                   selectedSurface = {
                       filename = ""
                       path = ""
@@ -94,5 +114,4 @@ type Model =
                   surfaces = List.empty
                 }
             }
-
-    
+        

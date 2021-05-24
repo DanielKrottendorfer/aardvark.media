@@ -27,15 +27,6 @@ module App =
                 | _ -> chosen []//failwithf "onChooseFiles: %A" xs
             onEvent "onchoose" [] cb   
     
-    //let importFolders (paths : list<string>) : list<OpcFolder> = 
-    //  paths
-    //    |> List.map(fun x ->
-    //      if x |> Discover.isOpcFolder then x |> Opc
-    //      elif x |> Discover.isSurface then x |> Surface
-    //      elif x |> Discover.isSurfaceFolder then x |> SurfaceFolder
-    //      else x |> Other
-    //    )    
-    
     let tryFileExists path = 
         if File.Exists path then Some path else None
     
@@ -168,7 +159,7 @@ module App =
 
             
             { model with 
-                selectedPaths = selectedPaths |> IndexList.ofList
+                selectedPaths = selectedPaths 
                 opcPaths = opcs
                 surfaceFolders = surfacePaths
                 surfaces = opc_surfaces
@@ -180,10 +171,10 @@ module App =
                 hover = i    
             }
         | Select i -> 
+            
+
+            let s = model.surfaceFolders.[i]
             let selected = 
-
-                let s = model.surfaceFolders.[i]
-
                 if model.highlightedFolders.Contains(s) then
                     model.highlightedFolders.Remove(s)
                 else
@@ -192,6 +183,7 @@ module App =
 
             
             { model with
+                lastSelectedPath = s
                 highlightedFolders = selected
                 selectedSurface = model.surfaces.[i]
             }
@@ -207,6 +199,7 @@ module App =
         |Restore ->
             let dir = Directory.GetCurrentDirectory()
             let path = dir + "\\sav.json"
+
 
             if File.Exists(path) then
                 let file = File.readAllText path
@@ -226,7 +219,8 @@ module App =
     
         Incremental.div ([clazz "ui very compact stackable inverted relaxed divided list"] |> AttributeMap.ofList) (
             alist {
-                for p in model.selectedPaths do
+                let! sp = model.selectedPaths
+                for p in sp do
                     yield div [clazz "ui inverted item"][              
                         div [clazz "ui content"] [
                             div [clazz "ui header tiny"] [p |> text]
@@ -271,20 +265,23 @@ module App =
                 let! test = model.surfaceFolders
                 let! hover = model.hover
                 let! selected = model.highlightedFolders.Content
+                let! lastSelected = model.lastSelectedPath
 
                 for i in 0..test.Length-1 do
                     
                     let opc = test.[i]
                     let opc_name = List.last (String.split '\\' opc);
                    
-                   
-                    if selected.Contains opc then
-                        yield h3 [style "color: red"; onMouseOver (fun _ -> Enter i) ;onMouseDoubleClick(fun _ -> UpdateProperties i); onClick (fun _ -> Select i)] [text (opc_name)]
+                    if lastSelected.Contains opc then
+                        yield h3 [style "color: green"; onMouseOver (fun _ -> Enter i) ;onMouseDoubleClick(fun _ -> UpdateProperties i); onClick (fun _ -> Select i)] [text (opc_name)]
                     else
-                        if hover = i then
-                            yield h3 [style "color: blue"; onMouseOver (fun _ -> Enter i);onMouseDoubleClick(fun _ -> UpdateProperties i); onClick (fun _ -> Select i)] [text (opc_name)]
+                        if selected.Contains opc then
+                            yield h3 [style "color: red"; onMouseOver (fun _ -> Enter i) ;onMouseDoubleClick(fun _ -> UpdateProperties i); onClick (fun _ -> Select i)] [text (opc_name)]
                         else
-                            yield h3 [style "color: white";onMouseOver (fun _ -> Enter i);onMouseDoubleClick(fun _ -> UpdateProperties i); onClick (fun _ -> Select i)] [text (opc_name)]
+                            if hover = i then
+                                yield h3 [style "color: blue"; onMouseOver (fun _ -> Enter i);onMouseDoubleClick(fun _ -> UpdateProperties i); onClick (fun _ -> Select i)] [text (opc_name)]
+                            else
+                                yield h3 [style "color: white";onMouseOver (fun _ -> Enter i);onMouseDoubleClick(fun _ -> UpdateProperties i); onClick (fun _ -> Select i)] [text (opc_name)]
    
             }
         )
@@ -314,18 +311,23 @@ module App =
                 let! boxes = model.bboxes 
                 let! hover = model.hover
                 let! selected = model.highlightedFolders.Content
+                let! lastSelected = model.lastSelectedPath
 
                 for i in 0..boxes.Length-1 do
                 
                     let opc = test.[i]
-
-                    if selected.Contains opc then
-                        yield drawBox boxes.[i] [style "stroke: red;   stroke-width:2;fill-opacity: .25;";onMouseOver (fun _ -> Enter i); onClick (fun _ -> Select i)]
+                    
+                    if lastSelected.Contains opc then
+                        yield drawBox boxes.[i] [style "stroke: green;   stroke-width:2;fill-opacity: .25;";onMouseOver (fun _ -> Enter i); onClick (fun _ -> Select i)]
                     else
-                        if hover = i then
-                            yield drawBox boxes.[i] [style "stroke: blue;   stroke-width:2;fill-opacity: .25;";onMouseOver (fun _ -> Enter i); onClick (fun _ -> Select i)]
+                 
+                        if selected.Contains opc then
+                            yield drawBox boxes.[i] [style "stroke: red;   stroke-width:2;fill-opacity: .25;";onMouseOver (fun _ -> Enter i); onClick (fun _ -> Select i)]
                         else
-                            yield drawBox boxes.[i] [style "stroke: white;  stroke-width:2;fill-opacity: .25;";onMouseOver (fun _ -> Enter i); onClick (fun _ -> Select i)] 
+                            if hover = i then
+                                yield drawBox boxes.[i] [style "stroke: blue;   stroke-width:2;fill-opacity: .25;";onMouseOver (fun _ -> Enter i); onClick (fun _ -> Select i)]
+                            else
+                                yield drawBox boxes.[i] [style "stroke: white;  stroke-width:2;fill-opacity: .25;";onMouseOver (fun _ -> Enter i); onClick (fun _ -> Select i)] 
             }
     
         let svg =
@@ -459,11 +461,6 @@ module App =
                 | Some "properties" ->
                     require Html.semui (
                         body [style"width: 100%; height:100%; background: transparent; overflow: auto"; ] [
-                            //div [clazz "ui inverted segment"] [
-                            //    h1 [clazz "ui"][text "Properties"]
-                            //    properties model
-                            //    button[onClick(fun _ -> OpenExplorer) ][text "Open Folder"]
-                            //]
                             SurfacePropertiesApp.view model.selectedSurface |> UI.map SurfacePropertiesMessage
                         ]
                     )
@@ -519,29 +516,14 @@ module App =
         |> List.map DiscoverOpcs.Discover.discoverOpcs 
         |> List.concat
     
-    let initial =  { 
-        selectedPaths = initPaths |> IndexList.ofList
-        opcPaths = HashMap.empty //opcPaths |> IndexList.ofList
-        selectedSurface = {
-            filename = ""
-            path = ""
-            bounds = Box3d()
-        }
-        surfaces = List.empty
-        surfaceFolders = List.empty
-        bboxes = List.empty
-        hover = -1
-        highlightedFolders = HashSet.empty
-        dockConfig = Model.ui.dockConfig
-    }
-    
+    let initial = Model.Default
 
     let app =
         let initial = Restore |> update initial
         {
             unpersist = Unpersist.instance     
             threads = threads 
-            initial = initial.selectedPaths.AsList |> SetPaths |> update initial
+            initial = initial.selectedPaths |> SetPaths |> update initial
             update = update 
             view = view
         }
